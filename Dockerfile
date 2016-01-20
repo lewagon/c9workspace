@@ -1,30 +1,12 @@
 FROM cloud9/workspace
 MAINTAINER Sebastien Saunier <seb@lewagon.org>
 
+RUN echo "Version 0.1.0"
+
 RUN add-apt-repository ppa:git-core/ppa
 RUN apt-get update
-RUN apt-get install -y git zsh build-essential tklib zlib1g-dev libssl-dev libssl-dev nodejs libffi-dev libxml2 libxml2-dev libxslt1-dev
+RUN apt-get install -y git tklib zlib1g-dev libssl-dev libffi-dev libxml2 libxml2-dev libxslt1-dev
 RUN apt-get clean
-
-# As ubuntu user
-WORKDIR /home/ubuntu
-USER ubuntu
-
-# Oh-my-zsh
-RUN curl -L https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh > install.sh && sudo bash install.sh && rm install.sh
-USER root
-WORKDIR /home/ubuntu/.oh-my-zsh/custom/plugins
-RUN git clone git://github.com/zsh-users/zsh-syntax-highlighting.git
-RUN git clone git://github.com/zsh-users/zsh-history-substring-search.git
-WORKDIR /home/ubuntu
-RUN mv .zshrc .zshrc.original && curl -L https://raw.githubusercontent.com/lewagon/dotfiles/master/zshrc > .zshrc
-USER ubuntu
-
-# Rbenv & Ruby
-RUN curl https://raw.githubusercontent.com/fesplugas/rbenv-installer/master/bin/rbenv-installer | bash
-ENV PATH /home/ubuntu/.rbenv/bin:/home/ubuntu/.rbenv/shims:$PATH
-RUN rbenv install 2.2.3 && rbenv global 2.2.3
-RUN gem install bundler rails
 
 # Postgresql 9.3 already installed
 USER postgres
@@ -32,6 +14,27 @@ RUN service postgresql start && psql --command "CREATE ROLE ubuntu login created
 RUN service postgresql start && psql --command "DROP DATABASE template1;"
 RUN service postgresql start && psql --command "CREATE DATABASE template1 WITH TEMPLATE = template0 ENCODING = 'UNICODE';"
 RUN service postgresql start && psql --command "UPDATE pg_database SET datistemplate = TRUE WHERE datname = 'template1';"
+
+# As ubuntu user
+WORKDIR /home/ubuntu
+USER ubuntu
+
+# Rbenv & Ruby
+RUN sudo /usr/local/rvm/bin/rvm implode --force
+RUN curl https://raw.githubusercontent.com/fesplugas/rbenv-installer/master/bin/rbenv-installer | bash
+ENV PATH /home/ubuntu/.rbenv/bin:/home/ubuntu/.rbenv/shims:$PATH
+RUN rbenv install 2.3.0 && rbenv global 2.3.0
+RUN gem install bundler rails
+RUN echo "nvm use default > /dev/null 2>&1 && nvm alias default stable > /dev/null 2>&1\n\
+\n\
+export RBENV_ROOT=\"\${HOME}/.rbenv\"\n\
+\n\
+if [ -d \"\${RBENV_ROOT}\" ]; then\n\
+  export PATH=\"\${RBENV_ROOT}/bin:\${PATH}\"\n\
+  eval \"\$(rbenv init -)\"\n\
+fi\n\
+\n\
+export PATH=\"./bin:\${PATH}\"\n" >> /home/ubuntu/.profile
 
 # Default workspace
 USER root
@@ -46,6 +49,3 @@ RUN chmod -R g-w /home/ubuntu/lib && chown -R root:root /home/ubuntu/lib
 USER ubuntu
 RUN rails new -T --database=postgresql to-be-removed
 RUN rm -rf to-be-removed
-
-# Zsh by default on bash startup
-RUN echo "zsh" >> .bashrc
